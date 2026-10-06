@@ -1,1 +1,243 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>나 사랑해?</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            overflow: hidden; /* Ngăn chặn cuộn trang khi nút nhảy ra mép */
+            background: linear-gradient(135deg, #ffe4e6 0%, #fbcfe8 100%); /* Nền hồng pastel */
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            touch-action: none; /* Ngăn chặn thao tác cuộn trên mobile */
+        }
 
+        .title-text {
+            font-family: 'Dancing Script', cursive;
+        }
+
+        /* Nút Không: Đảm bảo không bao giờ biến mất, chỉ có transition để di chuyển mượt */
+        #btn-no {
+            transition: top 0.2s ease-in-out, left 0.2s ease-in-out;
+            z-index: 100;
+        }
+
+        /* Container chứa trái tim rơi */
+        #hearts-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Tránh việc click nhầm vào trái tim thay vì nút */
+            z-index: 10;
+        }
+
+        /* Hiệu ứng trái tim rơi từ trên xuống */
+        @keyframes fallDown {
+            0% {
+                transform: translateY(-10vh) scale(0.8) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(110vh) scale(1.2) rotate(360deg);
+                opacity: 0.5;
+            }
+        }
+
+        .falling-heart {
+            position: absolute;
+            top: -10vh;
+            animation: fallDown linear forwards;
+            filter: drop-shadow(0 2px 4px rgba(255, 105, 180, 0.4));
+        }
+        
+        /* Hiệu ứng tim đập cho màn hình thành công */
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .heartbeat-icon {
+            animation: heartbeat 1s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center">
+
+    <!-- Màn hình 1: Câu hỏi tỏ tình -->
+    <div id="screen-1" class="relative z-20 bg-white/60 backdrop-blur-md p-10 md:p-16 rounded-[3rem] shadow-2xl text-center border border-white/50 w-[90%] max-w-lg transition-opacity duration-500">
+        <div class="text-6xl mb-6 heartbeat-icon inline-block">💌</div>
+        <h1 class="title-text text-5xl md:text-6xl text-rose-500 mb-2 drop-shadow-sm leading-tight">
+            나 사랑해?
+        </h1>
+        <p class="text-xl text-rose-400 font-semibold mb-10">솔직하게 대답해줘!</p>
+        
+        <!-- Khu vực chứa các nút -->
+        <!-- Đặt height cố định nhẹ để tránh layout bị giật khi nút 'Không' chuyển sang position absolute/fixed -->
+        <div class="flex flex-col sm:flex-row justify-center items-center gap-6 h-28 sm:h-16 relative">
+            <button id="btn-yes" class="bg-gradient-to-r from-rose-400 to-pink-500 text-white font-bold text-xl py-3 px-6 rounded-full shadow-lg hover:scale-110 hover:shadow-pink-400/50 transition-all duration-300 w-auto min-w-[200px] z-30 whitespace-nowrap">
+                응, 완전 사랑해! ❤️
+            </button>
+            
+            <!-- Nút Không ban đầu nằm bình thường trong luồng flexbox -->
+            <button id="btn-no" class="bg-white text-rose-500 border-2 border-rose-300 font-bold text-xl py-3 px-8 rounded-full shadow-md w-auto min-w-[120px] cursor-pointer whitespace-nowrap">
+                아니! 😜
+            </button>
+        </div>
+    </div>
+
+    <!-- Màn hình 2: Chúc mừng (Ẩn mặc định bằng Tailwind hidden) -->
+    <div id="screen-2" class="hidden absolute z-20 bg-white/70 backdrop-blur-md p-12 rounded-[3rem] shadow-2xl text-center border border-white/50 w-[90%] max-w-lg scale-90 opacity-0 transition-all duration-700">
+        <div class="text-7xl mb-6 heartbeat-icon inline-block">🥰</div>
+        <h1 class="title-text text-5xl md:text-6xl text-rose-600 mb-6 drop-shadow-sm">
+            그럴 줄 알았어!
+        </h1>
+        <p class="text-2xl font-bold text-gray-700 mb-4">
+            나도 널 아주 많이 사랑해 ❤️
+        </p>
+    </div>
+
+    <!-- Container chứa hiệu ứng trái tim rơi -->
+    <div id="hearts-container"></div>
+
+    <script>
+        const btnNo = document.getElementById('btn-no');
+        const btnYes = document.getElementById('btn-yes');
+        const screen1 = document.getElementById('screen-1');
+        const screen2 = document.getElementById('screen-2');
+        const heartsContainer = document.getElementById('hearts-container');
+
+        let isNoButtonEvading = false;
+
+        // Hàm xử lý việc nhảy tọa độ của nút "Không"
+        function evadeCursor() {
+            // Nếu đây là lần chạy trốn đầu tiên, tách nút ra khỏi layout flex để nó có thể bay tự do khắp màn hình
+            if (!isNoButtonEvading) {
+                const rect = btnNo.getBoundingClientRect();
+                btnNo.style.position = 'fixed';
+                btnNo.style.left = `${rect.left}px`;
+                btnNo.style.top = `${rect.top}px`;
+                btnNo.style.margin = '0'; 
+                isNoButtonEvading = true;
+                
+                // Đợi 1 nhịp siêu ngắn để DOM áp dụng fixed, sau đó tính tọa độ mới
+                setTimeout(moveButtonToRandomPosition, 10);
+            } else {
+                moveButtonToRandomPosition();
+            }
+        }
+
+        // Tính toán và áp dụng vị trí ngẫu nhiên mới
+        function moveButtonToRandomPosition() {
+            const btnWidth = btnNo.offsetWidth;
+            const btnHeight = btnNo.offsetHeight;
+            
+            const screenW = window.innerWidth;
+            const screenH = window.innerHeight;
+
+            // Giới hạn vùng di chuyển: Tạo một "hộp an toàn" CHỈ chiếm 50% chiều rộng và 40% chiều cao ở chính giữa
+            const safeAreaWidth = screenW * 0.5;
+            const safeAreaHeight = screenH * 0.4;
+
+            // Tính toán tọa độ bắt đầu của hộp an toàn (để hộp nằm ngay giữa màn hình)
+            const startX = (screenW - safeAreaWidth) / 2;
+            const startY = (screenH - safeAreaHeight) / 2;
+
+            // Tính toán khoảng di chuyển tối đa trong hộp an toàn (đã trừ đi kích thước nút để nút không tràn viền hộp)
+            const maxX = startX + safeAreaWidth - btnWidth;
+            const maxY = startY + safeAreaHeight - btnHeight;
+
+            // Đảm bảo không bị lỗi trên các màn hình điện thoại quá bé (chống việc min lớn hơn max)
+            const validMinLeft = Math.min(startX, Math.max(0, maxX));
+            const validMaxLeft = Math.max(validMinLeft, maxX);
+            
+            const validMinTop = Math.min(startY, Math.max(0, maxY));
+            const validMaxTop = Math.max(validMinTop, maxY);
+
+            // Random tọa độ x, y bắt buộc nằm TRỌN vẹn bên trong vùng hộp an toàn ở giữa
+            const randomLeft = validMinLeft + Math.floor(Math.random() * (validMaxLeft - validMinLeft));
+            const randomTop = validMinTop + Math.floor(Math.random() * (validMaxTop - validMinTop));
+
+            // Cập nhật vị trí mới. Lưu ý: KHÔNG HỀ DÙNG display: none hay opacity: 0
+            btnNo.style.left = `${randomLeft}px`;
+            btnNo.style.top = `${randomTop}px`;
+        }
+
+        // 1. Dành cho máy tính (khi đưa chuột vào)
+        btnNo.addEventListener('mouseenter', evadeCursor);
+        
+        // 2. Dành cho điện thoại (khi cố chạm ngón tay vào)
+        btnNo.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Ngăn thao tác click tự động trên mobile
+            evadeCursor();
+        }, { passive: false });
+
+        // Trường hợp người dùng thao tác quá nhanh hoặc cố dùng tab phím
+        btnNo.addEventListener('click', (e) => {
+            e.preventDefault();
+            evadeCursor();
+        });
+
+
+        // Hàm tạo một trái tim rơi
+        function createFallingHeart() {
+            const heart = document.createElement('div');
+            heart.classList.add('falling-heart');
+            
+            // Random biểu tượng trái tim
+            const heartSymbols = ['❤️', '💖', '💗', '💓', '💘', '💕', '💞', '🌸'];
+            heart.innerText = heartSymbols[Math.floor(Math.random() * heartSymbols.length)];
+            
+            // Vị trí xuất phát ngang ngẫu nhiên
+            heart.style.left = `${Math.random() * 100}vw`;
+            
+            // Thời gian rơi và kích thước ngẫu nhiên
+            const duration = Math.random() * 3 + 3; // 3 - 6 giây
+            heart.style.animationDuration = `${duration}s`;
+            heart.style.fontSize = `${Math.random() * 20 + 20}px`; // 20px - 40px
+            
+            heartsContainer.appendChild(heart);
+
+            // Dọn dẹp DOM sau khi trái tim rơi xong để tránh nặng bộ nhớ
+            setTimeout(() => {
+                heart.remove();
+            }, duration * 1000);
+        }
+
+        // Xử lý sự kiện khi ấn nút "Có"
+        btnYes.addEventListener('click', () => {
+            // 1. Ẩn màn hình 1 (Toàn bộ Form câu hỏi sẽ biến mất, nút "Không" tự động biến mất theo Form chứ bản thân nút Không không bị gán logic display none riêng rẽ)
+            screen1.classList.add('opacity-0', 'pointer-events-none');
+            
+            setTimeout(() => {
+                screen1.style.display = 'none'; // Ẩn hẳn cấu trúc
+                
+                // 2. Hiện màn hình 2
+                screen2.classList.remove('hidden');
+                
+                // Cho trình duyệt 50ms để render display trước khi áp dụng hiệu ứng mượt
+                setTimeout(() => {
+                    screen2.classList.remove('opacity-0', 'scale-90');
+                    screen2.classList.add('opacity-100', 'scale-100');
+                }, 50);
+
+                // 3. Khởi tạo hiệu ứng mưa trái tim
+                // Bắn liền một lúc 15 trái tim mở màn
+                for(let i = 0; i < 15; i++) {
+                    setTimeout(createFallingHeart, i * 150);
+                }
+                
+                // Rơi đều đặn các trái tim sau đó
+                setInterval(createFallingHeart, 400);
+
+            }, 500); // 500ms này tương ứng với thời gian duration-500 ở screen-1
+        });
+    </script>
+</body>
+</html>
